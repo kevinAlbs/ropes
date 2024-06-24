@@ -4,6 +4,10 @@ import { Game, Types, Scene } from "phaser";
 class GameScene extends Scene {
     score: Number = 0;
     scoreText: Phaser.GameObjects.Text;
+    restartState: string;
+    platformXOffset: number = 0;
+    platforms: Phaser.Physics.Arcade.StaticGroup;
+
 
     preload(this: Scene) {
         this.load.image('sky', 'assets/sky.png');
@@ -11,69 +15,19 @@ class GameScene extends Scene {
         this.load.spritesheet({ key: 'dude', frameConfig: { frameWidth: 32, frameHeight: 48 }, url: 'assets/dude.png' });
     }
 
+    isShootDown() {
+        return this.input.activePointer.isDown /* click or tap */ || space.isDown /* spacebar */;
+    }
+
     create() {
-        // this.add.image(0,0, 'sky').setOrigin(0,0).setScale(2, 1);
+        this.restartState = "unset";
+        this.platforms = this.physics.add.staticGroup();
 
-        platforms = this.physics.add.staticGroup();
-
-        let p = platforms.create(0, 568, 'ground');
-        p.setInteractive({ draggable: true });
-        p.scaleX *= 10;
-        p.refreshBody();
-        player = this.physics.add.sprite(50, 450, 'dude');
+        player = this.physics.add.sprite(0, 300, 'dude');
         player.setBounce(.1);
         player.setCollideWorldBounds(false);
-        player.body.checkCollision.up = false;
-        player.body.checkCollision.right = false;
-        player.body.checkCollision.left = false;
-        player.body.checkCollision.down = false;
         player.body.setGravityY(300);
-        this.physics.add.collider(player, platforms);
-
-        this.input.on(Phaser.Input.Events.POINTER_UP, function (_pointer: Phaser.Input.Pointer, _currentlyOver: [Phaser.GameObjects.GameObject]) {
-            console.log("pointer up");
-            console.log(_currentlyOver);
-            for (let i = 0; i < _currentlyOver.length; i++) {
-                if (platforms.contains(_currentlyOver[i])) {
-                    enableEditing(_currentlyOver[i] as Phaser.Physics.Arcade.Sprite);
-                }
-                // if (_currentlyOver[i])
-            }
-        });
-
-        let that = this;
-        document.addEventListener("keyup", function (evt: any) {
-            // Add a draggable platform.
-            if (evt.key == 'p') {
-                let platform: Phaser.Physics.Arcade.Sprite = platforms.create(that.input.activePointer.worldX, that.input.activePointer.worldY, 'ground');
-                platform.setInteractive({ draggable: true });
-                enableEditing(platform);
-                return;
-            }
-
-            if (evt.key == 'Escape') {
-                disableEditing();
-                return;
-            }
-
-            if (evt.key == '1') {
-                if (editingPlatform != null) {
-                    editingPlatform.scaleX += .05;
-                    editingPlatform.refreshBody();
-                }
-                return;
-            }
-
-            if (evt.key == '2') {
-                if (editingPlatform != null) {
-                    editingPlatform.scaleX -= .05;
-                    editingPlatform.refreshBody();
-                }
-                return;
-            }
-
-        })
-
+        this.physics.add.collider(player, this.platforms);
 
         this.anims.create({
             key: 'left',
@@ -97,13 +51,13 @@ class GameScene extends Scene {
         });
 
         if (this.input.keyboard) {
-            cursors = this.input.keyboard.createCursorKeys();
-            shoot = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE)
+            space = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE)
         }
 
         // this.physics.world.setBounds(0, 0, 1600, 600); // 1600x1200 size
         // this.cameras.main.setBounds(0, 0, 1600, 600);
         this.cameras.main.startFollow(player);
+        this.cameras.main.setLerp(1, 0); // Do not follow on Y axis.
 
         // TODO: show shooting line and collide.
 
@@ -136,42 +90,73 @@ class GameScene extends Scene {
         {
             shootState = "unshot";
             gameOver = false;
-            nextXToGenerate = 0;
         }
 
-        // Top layer.
-        {
-            let p: Phaser.Types.Physics.Arcade.SpriteWithStaticBody = platforms.create(50, 300, 'square');
-            p.setOrigin(0, 0);
-            p.scaleX *= 160;
-            p.scaleY *= 2;
-            p.refreshBody();
+        // Platforms are every 100 pixels.
+        this.platformXOffset = this.generatePlatforms(-500);
 
-        }
 
         lineGraphics = this.add.graphics({ lineStyle: { width: 4, color: 0xaa00aa } });
         line = new Phaser.Geom.Line(100, 300, 400, 300);
     }
 
+    // Returns the new offset.
+    generatePlatforms(xOff: number) {
+        for (let i = 0; i < this.platforms.children.entries.length; i++) {
+            let p = this.platforms.children.entries[i];
+            if (!p.body) continue;
+            if (p.body?.position.x < player.body.x - 1600) {
+                console.log("deleting platform " + i);
+                this.platforms.children.delete(p);
+                p.destroy();
+            }
+        }
+
+        const count = 20;
+        for (let i = 0; i < count; i++) {
+            // Ceiling.
+            {
+                let p: Phaser.Types.Physics.Arcade.SpriteWithStaticBody = this.platforms.create(xOff + (i * 100), 50, 'square');
+                p.setOrigin(0, 1);
+                p.scaleX *= 10;
+                p.scaleY *= 20;
+                p.setDebugBodyColor(0xFF0000)
+                p.refreshBody();
+            }
+
+            // Floor.
+            {
+                let p: Phaser.Types.Physics.Arcade.SpriteWithStaticBody = this.platforms.create(xOff + (i * 100), 550, 'square');
+                p.setOrigin(0, 0);
+                p.scaleX *= 10;
+                p.scaleY *= 20;
+                p.setDebugBodyColor(0xFF0000)
+                p.refreshBody();
+            }
+        }
+        return xOff + count * 100;
+    }
+
     update(_time: number, _delta: number) {
         this.scoreText.setText("Score: " + this.score);
-        this.score = Math.floor(player.body.x / 300);
+        this.score = Math.max(0, Math.floor(player.body.x / 300));
 
-        if (player.body.position.x > nextXToGenerate) {
+        if (player.body.position.x > this.platformXOffset - 1000) {
             // Generate next batch of platforms
-            console.log("generating for " + nextXToGenerate);
-
-            generatePlatforms(nextXToGenerate + 1600, true);
-
-            nextXToGenerate += 1600;
+            console.log("generating platforms");
+            this.platformXOffset = this.generatePlatforms(this.platformXOffset);
         }
 
         if (gameOver) {
             const screenCenterX = this.cameras.main.worldView.x + this.cameras.main.width / 2;
             const screenCenterY = this.cameras.main.worldView.y + this.cameras.main.height / 2;
-            gameOverText.setText("Press space to restart").setX(screenCenterX).setY(screenCenterY);
-            if (cursors.space.isDown) {
-                this.scene.restart();
+            gameOverText.setText("Shoot to restart").setX(screenCenterX).setY(screenCenterY);
+            if (this.isShootDown()) {
+                this.restartState = "ready";
+            } else {
+                if (this.restartState == "ready") {
+                    this.scene.restart();
+                }
             }
             player.setVelocity(0);
             return;
@@ -188,11 +173,6 @@ class GameScene extends Scene {
 
         debugText.setX(this.cameras.main.worldView.x).setColor("#000000");
         debugText.setText("");
-
-        if (cursors.down.isDown) {
-            this.scene.restart();
-        }
-
         player.body.setFrictionX(.01);
 
 
@@ -203,13 +183,10 @@ class GameScene extends Scene {
         }
 
 
-        if (cursors.up.isDown && player.body.touching.down) {
-            player.setVelocityY(-460);
-        }
 
         lineGraphics.clear();
 
-        if (!shoot.isDown) {
+        if (!this.isShootDown()) {
             // Detach if shot or reeling.
             if (shootState == "reeling" || shootState == "shot") {
                 // Detach.
@@ -263,11 +240,7 @@ class GameScene extends Scene {
         if (shootState == "shot") {
             // Check for collision.
             console.assert(spike);
-            if (this.physics.collide(spike, platforms, function (object1: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile, object2: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile) {
-                var o1 = object1 as Phaser.Types.Physics.Arcade.GameObjectWithBody;
-                var o2 = object2 as Phaser.Types.Physics.Arcade.GameObjectWithBody;
-                o1.body.y = o2.body.y;
-            })) {
+            if (this.physics.collide(spike, this.platforms)) {
                 spike.setVelocity(0, 0);
                 spike.body.allowGravity = false;
                 shootState = "reeling";
@@ -280,7 +253,7 @@ class GameScene extends Scene {
             }
         }
 
-        if (shoot.isDown) {
+        if (this.isShootDown()) {
             if (shootState == "unshot") {
                 shootState = "shot";
                 spike = this.physics.add.sprite(player.body.center.x, player.body.center.y, 'spike')
@@ -305,7 +278,7 @@ const config: Types.Core.GameConfig = {
         default: 'arcade',
         arcade: {
             gravity: { x: 0, y: 400 },
-            debug: false
+            debug: true
         }
     },
     scene: [GameScene]
@@ -313,7 +286,7 @@ const config: Types.Core.GameConfig = {
 };
 
 
-var platforms: Phaser.Physics.Arcade.StaticGroup;
+
 var player: Types.Physics.Arcade.SpriteWithDynamicBody;
 var gameOver: boolean = false;
 var debugText: Phaser.GameObjects.Text;
@@ -322,148 +295,12 @@ var gameOverText: Phaser.GameObjects.Text;
 var lineGraphics: Phaser.GameObjects.Graphics;
 var line: Phaser.Geom.Line;
 
-var editingPlatform: Phaser.Physics.Arcade.Sprite | null = null;
-
-function enableEditing(platform: Phaser.Physics.Arcade.Sprite) {
-    if (editingPlatform != null) {
-        disableEditing();
-    }
-    platform.on("drag", function (_pointer: Phaser.Input.Pointer, dragX: number, dragY: number) {
-        platform.setX(dragX);
-        platform.setY(dragY);
-    });
-    platform.on("dragend", function (_pointer: Phaser.Input.Pointer, _dragX: number, _dragY: number) {
-        platform.refreshBody();
-    });
-    platform.setTint(0xFF0000);
-    editingPlatform = platform;
-}
-
-function disableEditing() {
-    if (editingPlatform == null) {
-        return;
-    }
-    editingPlatform.off("drag");
-    editingPlatform.off("dragend");
-    editingPlatform.clearTint();
-    editingPlatform = null;
-}
 
 
-
-var cursors: Phaser.Types.Input.Keyboard.CursorKeys;
-var shoot: Phaser.Input.Keyboard.Key;
+var space: Phaser.Input.Keyboard.Key;
 var shootState = "unshot";
 var spike: Phaser.Types.Physics.Arcade.SpriteWithDynamicBody;
 
-var nextXToGenerate = 0;
-
-function generatePlatforms(offsetX: number, randomize: boolean) {
-
-    for (let i = 0; i < platforms.children.entries.length; i++) {
-        let p = platforms.children.entries[i];
-        if (!p.body) continue;
-        if (p.body?.position.x < player.body.x - 1600) {
-            console.log("deleting platform " + i);
-            platforms.children.delete(p);
-            p.destroy();
-        }
-    }
-    // Top layer.
-    {
-        let p: Phaser.Types.Physics.Arcade.SpriteWithStaticBody = platforms.create(offsetX, 300, 'square');
-        p.setOrigin(0, 0);
-        p.scaleX *= 20;
-        p.scaleY *= 2;
-        if (randomize) {
-            p.y += Math.random() * 400 - 200;
-        }
-        p.refreshBody();
-
-    }
-
-    {
-        let p = platforms.create(offsetX + 400, 300, 'square');
-        p.setOrigin(0, 0);
-        p.scaleX *= 20;
-        p.scaleY *= 2;
-        if (randomize) {
-            p.y += Math.random() * 400 - 200;
-        }
-        p.refreshBody();
-    }
-
-    {
-        let p = platforms.create(offsetX + 800, 300, 'square');
-        p.setOrigin(0, 0);
-        p.scaleX *= 20;
-        p.scaleY *= 2;
-        if (randomize) {
-            p.y += Math.random() * 400 - 200;
-        }
-        p.refreshBody();
-    }
-
-    {
-        let p = platforms.create(offsetX + 1200, 300, 'square');
-        p.setOrigin(0, 0);
-        p.scaleX *= 20;
-        p.scaleY *= 2;
-        if (randomize) {
-            p.y += Math.random() * 400 - 200;
-        }
-        p.refreshBody();
-    }
-
-    // if (randomize) {
-    // Top layer.
-    {
-        let p: Phaser.Types.Physics.Arcade.SpriteWithStaticBody = platforms.create(offsetX, 300 + 450, 'square');
-        p.setOrigin(0, 0);
-        p.scaleX *= 20;
-        p.scaleY *= 2;
-        if (randomize) {
-            p.y += Math.random() * 400 - 200;
-        }
-        p.refreshBody();
-
-    }
-
-    {
-        let p = platforms.create(offsetX + 400, 300 + 450, 'square');
-        p.setOrigin(0, 0);
-        p.scaleX *= 20;
-        p.scaleY *= 2;
-        if (randomize) {
-            p.y += Math.random() * 400 - 200;
-        }
-        p.refreshBody();
-    }
-
-    {
-        let p = platforms.create(offsetX + 800, 300 + 450, 'square');
-        p.setOrigin(0, 0);
-        p.scaleX *= 20;
-        p.scaleY *= 2;
-        if (randomize) {
-            p.y += Math.random() * 400 - 200;
-        }
-        p.refreshBody();
-    }
-
-    {
-        let p = platforms.create(offsetX + 1200, 300 + 450, 'square');
-        p.setOrigin(0, 0);
-        p.scaleX *= 20;
-        p.scaleY *= 2;
-        if (randomize) {
-            p.y += Math.random() * 400 - 200;
-        }
-        p.refreshBody();
-    }
-    // }
-
-}
 
 
 let game = new Game(config);
