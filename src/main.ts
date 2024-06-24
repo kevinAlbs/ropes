@@ -134,7 +134,7 @@ class GameScene extends Scene {
 
         // Reset global state. Needed in case the scene is restarted due to death.
         {
-            shootState = "ready";
+            shootState = "unshot";
             gameOver = false;
             nextXToGenerate = 0;
         }
@@ -202,35 +202,26 @@ class GameScene extends Scene {
             player.body.setVelocityX(player.body.velocity.x * .99);
         }
 
-        if (shootState != "reeling") {
-            // if (cursors.right.isDown) {
-            //     if (player.body.touching.down) {
-            //         if (player.body.velocity.x > 160) {
-            //             player.body.velocity.x *= .9;
-            //         } else {
-            //         player.body.setVelocityX(160);
-            //         }
-            //     }
-            //     player.anims.play('right', true);
-            // }
-            // else if (cursors.left.isDown) {
-            //     player.body.setVelocityX(-160);
-            //     player.anims.play('left', true);
-            // } else {
-            //     if (player.body.touching.down) {
-            //         player.body.setVelocityX(player.body.velocity.x * .9);
-            //     } else {
-            //         player.body.setVelocityX(player.body.velocity.x * .985);
-            //     }
-            //     player.anims.play('turn');
-            // }
-        }
 
         if (cursors.up.isDown && player.body.touching.down) {
             player.setVelocityY(-460);
         }
 
         lineGraphics.clear();
+
+        if (!shoot.isDown) {
+            // Detach if shot or reeling.
+            if (shootState == "reeling" || shootState == "shot") {
+                // Detach.
+                console.log("detaching");
+                spike.destroy();
+                shootState = "unshot";
+            }
+            if (shootState == "ready") {
+                shootState = "unshot";
+            }
+        }
+
         if (shootState == "reeling") {
             line.x1 = player.body.x + player.body.width / 2;
             line.y1 = player.body.y + player.body.height / 2;
@@ -241,11 +232,11 @@ class GameScene extends Scene {
             // Move player towards spike.
             var xdiff = spike.body.position.x - player.body.x;
             if (xdiff < -50) {
-                shootState = "unshot";
+                shootState = "ready";
             } else {
 
                 // Move towards target velocity.
-                const kTargetVelocity = 400;
+                const kTargetVelocity = 300;
                 const kVelStep = 5 * game.loop.delta;
                 // Inch towards target velocity.
                 {
@@ -282,25 +273,19 @@ class GameScene extends Scene {
                 shootState = "reeling";
             }
 
-            else if (shoot.isDown || (spike.y < this.cameras.main.worldView.top - 300 || spike.y > 3200)) {
-                // Shooting new, or off camera.
+            else if (spike.y < this.cameras.main.worldView.top - 300 || spike.y > 3200) {
                 console.log("off camera");
                 spike.destroy();
-                shootState = "unshot";
+                shootState = "ready";
             }
         }
 
-        if (shoot.isUp) {
-            if (shootState == "ready") {
+        if (shoot.isDown) {
+            if (shootState == "unshot") {
                 shootState = "shot";
                 spike = this.physics.add.sprite(player.body.center.x, player.body.center.y, 'spike')
                 spike.setVelocityX(1000);
                 spike.setVelocityY(-1000);
-            }
-        }
-        if (shoot.isDown) {
-            if (shootState == "unshot") {
-                shootState = "ready";
             }
         }
     }
@@ -368,7 +353,7 @@ function disableEditing() {
 
 var cursors: Phaser.Types.Input.Keyboard.CursorKeys;
 var shoot: Phaser.Input.Keyboard.Key;
-var shootState = "ready";
+var shootState = "unshot";
 var spike: Phaser.Types.Physics.Arcade.SpriteWithDynamicBody;
 
 var nextXToGenerate = 0;
