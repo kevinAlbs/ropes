@@ -9,6 +9,13 @@ class GameScene extends Scene {
     platforms: Phaser.Physics.Arcade.StaticGroup;
     gameOver: boolean;
     gameOverState: string;
+    gameOverText: Phaser.GameObjects.Text;
+    lineGraphics: Phaser.GameObjects.Graphics;
+    line: Phaser.Geom.Line;
+    player: Types.Physics.Arcade.SpriteWithDynamicBody;
+    space: Phaser.Input.Keyboard.Key;
+    shootState = "unshot";
+    spike: Phaser.Types.Physics.Arcade.SpriteWithDynamicBody;
 
     preload(this: Scene) {
         this.load.image('sky', 'assets/sky.png');
@@ -17,19 +24,18 @@ class GameScene extends Scene {
     }
 
     isShootDown() {
-        return this.input.activePointer.isDown /* click or tap */ || space.isDown /* spacebar */;
+        return this.input.activePointer.isDown /* click or tap */ || this.space.isDown /* spacebar */;
     }
 
     create() {
         this.platforms = this.physics.add.staticGroup();
 
-        player = this.physics.add.sprite(0, 200, 'dude');
-        player.setBounce(.1);
-        player.setCollideWorldBounds(false);
-        player.body.setGravityY(300);
+        this.player = this.physics.add.sprite(0, 200, 'dude');
+        this.player.setBounce(.1);
+        this.player.setCollideWorldBounds(false);
+        this.player.body.setGravityY(300); // Q: why does this appear to be more than the gravity applied in the config?
         let that = this;
-        this.physics.add.collider(player, this.platforms, (_o1: Phaser.Tilemaps.Tile | Types.Physics.Arcade.GameObjectWithBody, _o2: Phaser.Tilemaps.Tile | Types.Physics.Arcade.GameObjectWithBody) => {
-            // TODO: require a press then release.
+        this.physics.add.collider(this.player, this.platforms, (_o1: Phaser.Tilemaps.Tile | Types.Physics.Arcade.GameObjectWithBody, _o2: Phaser.Tilemaps.Tile | Types.Physics.Arcade.GameObjectWithBody) => {
             if (that.isShootDown()) {
                 this.gameOverState = "need_release";
             } else {
@@ -61,12 +67,12 @@ class GameScene extends Scene {
         });
 
         if (this.input.keyboard) {
-            space = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE)
+            this.space = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE)
         }
 
         // this.physics.world.setBounds(0, 0, 1600, 600); // 1600x1200 size
         // this.cameras.main.setBounds(0, 0, 1600, 600);
-        this.cameras.main.startFollow(player, false, 1 /* follow X */, 0 /* do not follow Y */, 0 /* offset X */, -100 /* offset Y */);
+        this.cameras.main.startFollow(this.player, false, 1 /* follow X */, 0 /* do not follow Y */, 0 /* offset X */, -100 /* offset Y */);
 
         // Create a sprite for the spike.
         {
@@ -87,26 +93,23 @@ class GameScene extends Scene {
         }
 
 
-        debugText = this.add.text(0, 0, "Debug:");
-        gameOverText = this.add.text(this.cameras.main.width / 2, this.cameras.main.height / 2, "").setOrigin(.5).setColor("#000000");
-        gameOverText.setScrollFactor(0);
+        this.gameOverText = this.add.text(this.cameras.main.width / 2, this.cameras.main.height / 2, "").setOrigin(.5).setColor("#000000");
+        this.gameOverText.setScrollFactor(0);
+        this.gameOverText.depth = 1;
 
         this.scoreText = this.add.text(5, 5, "").setColor("#FF0000");
         this.scoreText.setScrollFactor(0); // Stick to camera view.
         this.scoreText.depth = 1;
 
-        // Reset global state. Needed in case the scene is restarted due to death.
-        {
-            shootState = "unshot";
-            this.gameOver = false;
-        }
+        this.shootState = "unshot";
+        this.gameOver = false;
 
         // Platforms are every 100 pixels.
         this.platformXOffset = -500;
         this.platformYIncrement = 0;
 
-        lineGraphics = this.add.graphics({ lineStyle: { width: 4, color: 0xaa00aa } });
-        line = new Phaser.Geom.Line(100, 300, 400, 300);
+        this.lineGraphics = this.add.graphics({ lineStyle: { width: 4, color: 0xaa00aa } });
+        this.line = new Phaser.Geom.Line(100, 300, 400, 300);
     }
 
     // Returns the new offset.
@@ -115,7 +118,7 @@ class GameScene extends Scene {
         for (let i = 0; i < this.platforms.children.entries.length; i++) {
             let p = this.platforms.children.entries[i];
             if (!p.body) continue;
-            if (p.body?.position.x < player.body.x - 1600) {
+            if (p.body?.position.x < this.player.body.x - 1600) {
                 console.log("deleting platform " + i);
                 this.platforms.children.delete(p);
                 p.destroy();
@@ -123,7 +126,7 @@ class GameScene extends Scene {
         }
 
         // Check if close enough to generate next batch of platforms.
-        if (player.body.position.x < this.platformXOffset - 1000) {
+        if (this.player.body.position.x < this.platformXOffset - 1000) {
             return;
         }
 
@@ -208,11 +211,11 @@ class GameScene extends Scene {
 
     update(_time: number, _delta: number) {
         this.scoreText.setText("Score: " + this.score);
-        this.score = Math.max(0, Math.floor(player.body.x / 300));
+        this.score = Math.max(0, Math.floor(this.player.body.x / 300));
         this.maybeGeneratePlatforms();
 
         if (this.gameOver) {
-            gameOverText.setText("Shoot to restart");
+            this.gameOverText.setText("Shoot to restart");
             if (this.isShootDown()) {
                 if (this.gameOverState == "need_press") {
                     this.scene.restart();
@@ -226,49 +229,48 @@ class GameScene extends Scene {
             return;
         }
 
-        if (player.body.y > 1600) {
+        if (this.player.body.y > 1600) {
             this.cameras.main.stopFollow();
         }
 
-        debugText.setX(this.cameras.main.worldView.x).setColor("#000000");
-        debugText.setText("");
-        player.body.setFrictionX(.01);
+        this.player.body.setFrictionX(.01);
 
 
-        player.anims.play('right', true);
-        if (player.body.velocity.x > 200) {
+        this.player.anims.play('right', true);
+        if (this.player.body.velocity.x > 200) {
 
-            player.body.setVelocityX(player.body.velocity.x * .99);
+            this.player.body.setVelocityX(this.player.body.velocity.x * .99);
         }
 
 
 
-        lineGraphics.clear();
+        this.lineGraphics.clear();
 
         if (!this.isShootDown()) {
             // Detach if shot or reeling.
-            if (shootState == "reeling" || shootState == "shot") {
+            if (this.shootState == "reeling" || this.shootState == "shot") {
                 // Detach.
                 console.log("detaching");
-                spike.destroy();
-                shootState = "unshot";
+                this.spike.destroy();
+                this.shootState = "unshot";
             }
-            if (shootState == "ready") {
-                shootState = "unshot";
+            if (this.shootState == "ready") {
+                this.shootState = "unshot";
             }
         }
 
-        if (shootState == "reeling") {
-            line.x1 = player.body.x + player.body.width / 2;
-            line.y1 = player.body.y + player.body.height / 2;
-            line.x2 = spike.body.x;
-            line.y2 = spike.body.y;
+        if (this.shootState == "reeling") {
+            this.line.x1 = this.player.body.x + this.player.body.width / 2;
+            this.line.y1 = this.player.body.y + this.player.body.height / 2;
+            this.line.x2 = this.spike.body.x + this.spike.body.width / 2;
+            this.line.y2 = this.spike.body.y + this.spike.body.height / 2;
 
-            lineGraphics.strokeLineShape(line);
+            this.lineGraphics.strokeLineShape(this.line);
             // Move player towards spike.
-            var xdiff = spike.body.position.x - player.body.x;
+            var xdiff = this.spike.body.position.x - this.player.body.x;
             if (xdiff < -50) {
-                shootState = "ready";
+                this.shootState = "ready";
+                this.spike.destroy();
             } else {
 
                 // Move towards target velocity.
@@ -276,48 +278,48 @@ class GameScene extends Scene {
                 const kVelStep = 5 * game.loop.delta;
                 // Inch towards target velocity.
                 {
-                    var xVelCurr = player.body.velocity.x;
+                    var xVelCurr = this.player.body.velocity.x;
                     var xVelDiff = kTargetVelocity - xVelCurr;
                     var newXVel = xVelCurr + kVelStep * Math.sign(xVelDiff);
                     if (Math.abs(xVelDiff) < kVelStep) {
                         newXVel = kTargetVelocity;
                     }
-                    player.body.setVelocityX(newXVel);
+                    this.player.body.setVelocityX(newXVel);
                 }
                 {
-                    var yVelCurr = player.body.velocity.y;
+                    var yVelCurr = this.player.body.velocity.y;
                     var yVelDiff = -1 * kTargetVelocity - yVelCurr;
                     var newYVel = yVelCurr + kVelStep * Math.sign(yVelDiff);
                     if (Math.abs(yVelDiff) < kVelStep) {
                         newXVel = kTargetVelocity;
                     }
-                    player.body.setVelocityY(newYVel);
+                    this.player.body.setVelocityY(newYVel);
                 }
             }
         }
 
-        if (shootState == "shot") {
+        if (this.shootState == "shot") {
             // Check for collision.
-            console.assert(spike);
-            if (this.physics.collide(spike, this.platforms)) {
-                spike.setVelocity(0, 0);
-                spike.body.allowGravity = false;
-                shootState = "reeling";
+            console.assert(this.spike);
+            if (this.physics.collide(this.spike, this.platforms)) {
+                this.spike.setVelocity(0, 0);
+                this.spike.body.allowGravity = false;
+                this.shootState = "reeling";
             }
 
-            else if (spike.y < this.cameras.main.worldView.top - 300 || spike.y > 3200) {
+            else if (this.spike.y < this.cameras.main.worldView.top - 300 || this.spike.y > 3200) {
                 console.log("off camera");
-                spike.destroy();
-                shootState = "ready";
+                this.spike.destroy();
+                this.shootState = "ready";
             }
         }
 
         if (this.isShootDown()) {
-            if (shootState == "unshot") {
-                shootState = "shot";
-                spike = this.physics.add.sprite(player.body.center.x, player.body.center.y, 'spike')
-                spike.setVelocityX(1000);
-                spike.setVelocityY(-1000);
+            if (this.shootState == "unshot") {
+                this.shootState = "shot";
+                this.spike = this.physics.add.sprite(this.player.body.center.x, this.player.body.center.y, 'spike')
+                this.spike.setVelocityX(1000);
+                this.spike.setVelocityY(-1000);
             }
         }
     }
@@ -344,16 +346,6 @@ const config: Types.Core.GameConfig = {
 
 };
 
-
-
-var player: Types.Physics.Arcade.SpriteWithDynamicBody;
-var debugText: Phaser.GameObjects.Text;
-var gameOverText: Phaser.GameObjects.Text;
-var lineGraphics: Phaser.GameObjects.Graphics;
-var line: Phaser.Geom.Line;
-var space: Phaser.Input.Keyboard.Key;
-var shootState = "unshot";
-var spike: Phaser.Types.Physics.Arcade.SpriteWithDynamicBody;
 
 
 
