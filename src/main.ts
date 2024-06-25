@@ -6,6 +6,8 @@ class GameScene extends Scene {
     scoreText: Phaser.GameObjects.Text;
     restartState: string;
     platformXOffset: number = 0;
+    platformYOffset: number = 0;
+    platformYIncrement: number = 0;
     platforms: Phaser.Physics.Arcade.StaticGroup;
 
 
@@ -93,15 +95,15 @@ class GameScene extends Scene {
         }
 
         // Platforms are every 100 pixels.
-        this.platformXOffset = this.generatePlatforms(-500);
-
+        this.platformXOffset = -500;
 
         lineGraphics = this.add.graphics({ lineStyle: { width: 4, color: 0xaa00aa } });
         line = new Phaser.Geom.Line(100, 300, 400, 300);
     }
 
     // Returns the new offset.
-    generatePlatforms(xOff: number) {
+    maybeGeneratePlatforms() {
+        // Clean up off-screen platforms.
         for (let i = 0; i < this.platforms.children.entries.length; i++) {
             let p = this.platforms.children.entries[i];
             if (!p.body) continue;
@@ -112,11 +114,45 @@ class GameScene extends Scene {
             }
         }
 
+        // Check if close enough to generate next batch of platforms.
+        if (player.body.position.x < this.platformXOffset - 1000) {
+            return;
+        }
+
+        let yOff = this.platformYOffset;
+        let yInc = this.platformYIncrement;
+
+        if (this.platformXOffset > 0) {
+            // Not first batch, apply increment.
+            // Flip the sign.
+            let multiplier = 1;
+            if (yInc > 0) {
+                multiplier = -1;
+            }
+            // Choose a random amount [2,10]
+            yInc = (Math.floor(Math.random() * 10) + 2) * multiplier;
+            this.platformYIncrement = yInc;
+        }
+
+        let xOff = this.platformXOffset;
         const count = 20;
+
         for (let i = 0; i < count; i++) {
+            yOff += yInc;
+            if (Math.abs(yOff) > 50) {
+                let multiplier = 1;
+                if (yInc > 0) {
+                    // Flip the sign.
+                    multiplier = -1;
+                }
+                // Choose a random amount [2,10]
+                yInc = (Math.floor(Math.random() * 10) + 2) * multiplier;
+                this.platformYIncrement = yInc;
+            }
+
             // Ceiling.
             {
-                let p: Phaser.Types.Physics.Arcade.SpriteWithStaticBody = this.platforms.create(xOff + (i * 100), 50, 'square');
+                let p: Phaser.Types.Physics.Arcade.SpriteWithStaticBody = this.platforms.create(xOff + (i * 100), yOff + 50, 'square');
                 p.setOrigin(0, 1);
                 p.scaleX *= 10;
                 p.scaleY *= 20;
@@ -126,7 +162,7 @@ class GameScene extends Scene {
 
             // Floor.
             {
-                let p: Phaser.Types.Physics.Arcade.SpriteWithStaticBody = this.platforms.create(xOff + (i * 100), 550, 'square');
+                let p: Phaser.Types.Physics.Arcade.SpriteWithStaticBody = this.platforms.create(xOff + (i * 100), yOff + 550, 'square');
                 p.setOrigin(0, 0);
                 p.scaleX *= 10;
                 p.scaleY *= 20;
@@ -134,18 +170,13 @@ class GameScene extends Scene {
                 p.refreshBody();
             }
         }
-        return xOff + count * 100;
+        this.platformXOffset += count * 100;
     }
 
     update(_time: number, _delta: number) {
         this.scoreText.setText("Score: " + this.score);
         this.score = Math.max(0, Math.floor(player.body.x / 300));
-
-        if (player.body.position.x > this.platformXOffset - 1000) {
-            // Generate next batch of platforms
-            console.log("generating platforms");
-            this.platformXOffset = this.generatePlatforms(this.platformXOffset);
-        }
+        this.maybeGeneratePlatforms();
 
         if (gameOver) {
             const screenCenterX = this.cameras.main.worldView.x + this.cameras.main.width / 2;
