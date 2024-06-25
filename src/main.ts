@@ -2,13 +2,13 @@ import { Game, Types, Scene } from "phaser";
 
 
 class GameScene extends Scene {
-    score: Number = 0;
+    score: Number;
     scoreText: Phaser.GameObjects.Text;
-    restartState: string;
-    platformXOffset: number = 0;
-    platformYIncrement: number = 0;
+    platformXOffset: number;
+    platformYIncrement: number;
     platforms: Phaser.Physics.Arcade.StaticGroup;
-
+    gameOver: boolean;
+    gameOverState: string;
 
     preload(this: Scene) {
         this.load.image('sky', 'assets/sky.png');
@@ -21,14 +21,23 @@ class GameScene extends Scene {
     }
 
     create() {
-        this.restartState = "unset";
         this.platforms = this.physics.add.staticGroup();
 
-        player = this.physics.add.sprite(0, 300, 'dude');
+        player = this.physics.add.sprite(0, 200, 'dude');
         player.setBounce(.1);
         player.setCollideWorldBounds(false);
         player.body.setGravityY(300);
-        this.physics.add.collider(player, this.platforms);
+        let that = this;
+        this.physics.add.collider(player, this.platforms, (_o1: Phaser.Tilemaps.Tile | Types.Physics.Arcade.GameObjectWithBody, _o2: Phaser.Tilemaps.Tile | Types.Physics.Arcade.GameObjectWithBody) => {
+            // TODO: require a press then release.
+            if (that.isShootDown()) {
+                this.gameOverState = "need_release";
+            } else {
+                this.gameOverState = "need_press";
+            }
+
+            that.gameOver = true;
+        });
 
         this.anims.create({
             key: 'left',
@@ -57,10 +66,7 @@ class GameScene extends Scene {
 
         // this.physics.world.setBounds(0, 0, 1600, 600); // 1600x1200 size
         // this.cameras.main.setBounds(0, 0, 1600, 600);
-        this.cameras.main.startFollow(player);
-        this.cameras.main.setLerp(1, 0); // Do not follow on Y axis.
-
-        // TODO: show shooting line and collide.
+        this.cameras.main.startFollow(player, false, 1 /* follow X */, 0 /* do not follow Y */, 0 /* offset X */, -100 /* offset Y */);
 
         // Create a sprite for the spike.
         {
@@ -82,19 +88,22 @@ class GameScene extends Scene {
 
 
         debugText = this.add.text(0, 0, "Debug:");
-        gameOverText = this.add.text(0, 0, "").setOrigin(.5).setColor("#000000");
+        gameOverText = this.add.text(this.cameras.main.width / 2, this.cameras.main.height / 2, "").setOrigin(.5).setColor("#000000");
+        gameOverText.setScrollFactor(0);
 
-        this.scoreText = this.add.text(0, 0, "Score: 0").setColor("#000000");
+        this.scoreText = this.add.text(5, 5, "").setColor("#FF0000");
         this.scoreText.setScrollFactor(0); // Stick to camera view.
+        this.scoreText.depth = 1;
 
         // Reset global state. Needed in case the scene is restarted due to death.
         {
             shootState = "unshot";
-            gameOver = false;
+            this.gameOver = false;
         }
 
         // Platforms are every 100 pixels.
         this.platformXOffset = -500;
+        this.platformYIncrement = 0;
 
         lineGraphics = this.add.graphics({ lineStyle: { width: 4, color: 0xaa00aa } });
         line = new Phaser.Geom.Line(100, 300, 400, 300);
@@ -202,28 +211,23 @@ class GameScene extends Scene {
         this.score = Math.max(0, Math.floor(player.body.x / 300));
         this.maybeGeneratePlatforms();
 
-        if (gameOver) {
-            const screenCenterX = this.cameras.main.worldView.x + this.cameras.main.width / 2;
-            const screenCenterY = this.cameras.main.worldView.y + this.cameras.main.height / 2;
-            gameOverText.setText("Shoot to restart").setX(screenCenterX).setY(screenCenterY);
+        if (this.gameOver) {
+            gameOverText.setText("Shoot to restart");
             if (this.isShootDown()) {
-                this.restartState = "ready";
-            } else {
-                if (this.restartState == "ready") {
+                if (this.gameOverState == "need_press") {
                     this.scene.restart();
                 }
+            } else {
+                if (this.gameOverState == "need_release") {
+                    this.gameOverState = "need_press";
+                }
             }
-            player.setVelocity(0);
+            this.physics.pause();
             return;
         }
 
         if (player.body.y > 1600) {
             this.cameras.main.stopFollow();
-        }
-
-        if (player.body.y > 1600 + 800) {
-            gameOver = true;
-            return;
         }
 
         debugText.setX(this.cameras.main.worldView.x).setColor("#000000");
@@ -343,15 +347,10 @@ const config: Types.Core.GameConfig = {
 
 
 var player: Types.Physics.Arcade.SpriteWithDynamicBody;
-var gameOver: boolean = false;
 var debugText: Phaser.GameObjects.Text;
 var gameOverText: Phaser.GameObjects.Text;
-
 var lineGraphics: Phaser.GameObjects.Graphics;
 var line: Phaser.Geom.Line;
-
-
-
 var space: Phaser.Input.Keyboard.Key;
 var shootState = "unshot";
 var spike: Phaser.Types.Physics.Arcade.SpriteWithDynamicBody;
