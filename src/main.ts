@@ -6,7 +6,6 @@ class GameScene extends Scene {
     scoreText: Phaser.GameObjects.Text;
     restartState: string;
     platformXOffset: number = 0;
-    platformYOffset: number = 0;
     platformYIncrement: number = 0;
     platforms: Phaser.Physics.Arcade.StaticGroup;
 
@@ -119,23 +118,35 @@ class GameScene extends Scene {
             return;
         }
 
-        let yOff = this.platformYOffset;
-        let yInc = this.platformYIncrement;
+        let yOff = 0;
+        let yInc = 0;
 
         if (this.platformXOffset > 0) {
             // Not first batch, apply increment.
-            // Flip the sign.
-            let multiplier = 1;
-            if (yInc > 0) {
-                multiplier = -1;
-            }
             // Choose a random amount [2,10]
-            yInc = (Math.floor(Math.random() * 10) + 2) * multiplier;
-            this.platformYIncrement = yInc;
+            yInc = (Math.floor(Math.random() * 10) + 2);
+            if (Math.random() > .5) {
+                // Flip sign.
+                yInc *= -1;
+            }
+        }
+
+        let yExtra = 0;
+        if (this.platformXOffset > 2000) {
+            // Make harder.
+            yExtra = 10;
+        }
+        if (this.platformXOffset > 4000) {
+            // Make harder.
+            yExtra = 20;
+        }
+        if (this.platformXOffset > 6000) {
+            // Make harder.
+            yExtra = 30;
         }
 
         let xOff = this.platformXOffset;
-        const count = 20;
+        const count = 40;
 
         for (let i = 0; i < count; i++) {
             yOff += yInc;
@@ -150,11 +161,24 @@ class GameScene extends Scene {
                 this.platformYIncrement = yInc;
             }
 
+            if (i == 20 || i == 39) {
+                console.log("creating at xOff", xOff);
+                // Create a platform in the middle.
+                let yMin = yOff + 50 + yExtra + 200;
+                let yMax = yOff + 550 - yExtra;
+                let p: Phaser.Types.Physics.Arcade.SpriteWithStaticBody = this.platforms.create(xOff + (i * 50), yMin + (yMax - yMin) * Math.random(), 'square');
+                p.setOrigin(0, 1);
+                p.scaleX *= 5;
+                p.scaleY *= 10;
+                p.setDebugBodyColor(0xFF0000)
+                p.refreshBody();
+            }
+
             // Ceiling.
             {
-                let p: Phaser.Types.Physics.Arcade.SpriteWithStaticBody = this.platforms.create(xOff + (i * 100), yOff + 50, 'square');
+                let p: Phaser.Types.Physics.Arcade.SpriteWithStaticBody = this.platforms.create(xOff + (i * 50), yOff + 50 + yExtra, 'square');
                 p.setOrigin(0, 1);
-                p.scaleX *= 10;
+                p.scaleX *= 5;
                 p.scaleY *= 20;
                 p.setDebugBodyColor(0xFF0000)
                 p.refreshBody();
@@ -162,15 +186,15 @@ class GameScene extends Scene {
 
             // Floor.
             {
-                let p: Phaser.Types.Physics.Arcade.SpriteWithStaticBody = this.platforms.create(xOff + (i * 100), yOff + 550, 'square');
+                let p: Phaser.Types.Physics.Arcade.SpriteWithStaticBody = this.platforms.create(xOff + (i * 50), yOff + 550 - yExtra, 'square');
                 p.setOrigin(0, 0);
-                p.scaleX *= 10;
+                p.scaleX *= 5;
                 p.scaleY *= 20;
                 p.setDebugBodyColor(0xFF0000)
                 p.refreshBody();
             }
         }
-        this.platformXOffset += count * 100;
+        this.platformXOffset += count * 50;
     }
 
     update(_time: number, _delta: number) {
