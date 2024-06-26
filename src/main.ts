@@ -57,15 +57,15 @@ class GameScene extends Scene {
         this.player.setBounce(.1);
         this.player.setCollideWorldBounds(false);
         this.player.body.setGravityY(300); // Q: why does this appear to be more than the gravity applied in the config? A:
-        // let that = this;
+        let that = this;
         this.physics.add.collider(this.player, this.platforms, (_o1: Phaser.Tilemaps.Tile | Types.Physics.Arcade.GameObjectWithBody, _o2: Phaser.Tilemaps.Tile | Types.Physics.Arcade.GameObjectWithBody) => {
-            // if (that.isShootDown()) {
-            //     this.gameOverState = "need_release";
-            // } else {
-            //     this.gameOverState = "need_press";
-            // }
+            if (that.isShootDown()) {
+                this.gameOverState = "need_release";
+            } else {
+                this.gameOverState = "need_press";
+            }
 
-            // that.gameOver = true;
+            that.gameOver = true;
         });
 
         if (this.input.keyboard) {
