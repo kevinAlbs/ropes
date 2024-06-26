@@ -362,9 +362,3 @@ const config: Types.Core.GameConfig = {
 let game = new Game(config);
 
 export default game;
-
-declare global {
-    interface Window { game: any; recording: any; }
-}
-
-window.game = game;
