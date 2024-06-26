@@ -17,24 +17,46 @@ class GameScene extends Scene {
     space: Phaser.Input.Keyboard.Key;
     shootState = "unshot";
     spike: Phaser.Types.Physics.Arcade.SpriteWithDynamicBody;
-
-    preload(this: Scene) {
-        this.load.image('sky', 'assets/sky.png');
-        this.load.image('ground', 'assets/platform.png');
-        this.load.spritesheet({ key: 'dude', frameConfig: { frameWidth: 32, frameHeight: 48 }, url: 'assets/dude.png' });
-    }
-
     isShootDown() {
         return this.input.activePointer.isDown /* click or tap */ || this.space.isDown /* spacebar */;
     }
 
     create() {
-        this.platforms = this.physics.add.staticGroup();
+        // Create a sprite for a square.
+        {
+            var graphics = this.add.graphics();
+            graphics.fillStyle(0);
+            graphics.fillRect(0, 0, 10, 10);
+            graphics.generateTexture('square', 10, 10);
+            graphics.destroy();
+        }
 
-        this.player = this.physics.add.sprite(0, 200, 'dude');
+        // Create a sprite for the spike.
+        {
+            var graphics = this.add.graphics();
+            graphics.fillStyle(0);
+            graphics.fillCircle(2, 2, 2);
+            graphics.generateTexture('circle', 4, 4);
+            graphics.destroy();
+        }
+
+        // Create a sprite for the spike.
+        {
+            var graphics = this.add.graphics();
+            graphics.fillStyle(0);
+            graphics.fillCircle(20, 20, 20);
+            graphics.generateTexture('circle_large', 40, 40);
+            graphics.destroy();
+        }
+
+        this.platforms = this.physics.add.staticGroup();
+        this.player = this.physics.add.sprite(0, 200, 'circle_large');
+        this.player.setOrigin(.5, .5);
+        this.player.setCircle(20);
+        this.player.refreshBody();
         this.player.setBounce(.1);
         this.player.setCollideWorldBounds(false);
-        this.player.body.setGravityY(300); // Q: why does this appear to be more than the gravity applied in the config?
+        this.player.body.setGravityY(300); // Q: why does this appear to be more than the gravity applied in the config? A:
         let that = this;
         this.physics.add.collider(this.player, this.platforms, (_o1: Phaser.Tilemaps.Tile | Types.Physics.Arcade.GameObjectWithBody, _o2: Phaser.Tilemaps.Tile | Types.Physics.Arcade.GameObjectWithBody) => {
             if (that.isShootDown()) {
@@ -46,27 +68,6 @@ class GameScene extends Scene {
             that.gameOver = true;
         });
 
-        this.anims.create({
-            key: 'left',
-            frames: this.anims.generateFrameNumbers('dude', { start: 0, end: 3 }),
-            frameRate: 10,
-            repeat: -1
-        });
-
-        this.anims.create({
-            key: 'turn',
-            frames: [{ key: 'dude', frame: 4 }],
-            frameRate: 20,
-            repeat: -1
-        });
-
-        this.anims.create({
-            key: 'right',
-            frames: this.anims.generateFrameNumbers('dude', { start: 5, end: 8 }),
-            frameRate: 10,
-            repeat: -1
-        });
-
         if (this.input.keyboard) {
             this.space = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE)
         }
@@ -75,26 +76,7 @@ class GameScene extends Scene {
         // this.cameras.main.setBounds(0, 0, 1600, 600);
         this.cameras.main.startFollow(this.player, false, 1 /* follow X */, 0 /* do not follow Y */, 0 /* offset X */, -100 /* offset Y */);
 
-        // Create a sprite for the spike.
-        {
-            var graphics = this.add.graphics();
-            graphics.fillStyle(0);
-            graphics.fillCircle(2, 2, 5);
-            graphics.generateTexture('spike', 5, 5);
-            graphics.destroy();
-        }
-
-        // Create a sprite for a square.
-        {
-            var graphics = this.add.graphics();
-            graphics.fillStyle(0);
-            graphics.fillRect(0, 0, 10, 10);
-            graphics.generateTexture('square', 10, 10);
-            graphics.destroy();
-        }
-
-
-        this.centerText = this.add.text(this.cameras.main.width / 2, this.cameras.main.height / 2, "").setOrigin(.5).setColor("#FF0000");
+        this.centerText = this.add.text(this.cameras.main.width / 2, this.cameras.main.height / 2, "").setOrigin(.5).setColor("#FF0000").setFont("Monospace").setFontSize("20px");
         this.centerText.setScrollFactor(0);
         this.centerText.depth = 1;
 
@@ -102,7 +84,7 @@ class GameScene extends Scene {
             this.physics.pause();
         }
 
-        this.scoreText = this.add.text(5, 5, "").setColor("#FF0000");
+        this.scoreText = this.add.text(5, 5, "").setColor("#FF0000").setFont("Monospace").setFontSize("20px");
         this.scoreText.setScrollFactor(0); // Stick to camera view.
         this.scoreText.depth = 1;
 
@@ -113,7 +95,7 @@ class GameScene extends Scene {
         this.platformXOffset = -500;
         this.platformYIncrement = 0;
 
-        this.lineGraphics = this.add.graphics({ lineStyle: { width: 4, color: 0xaa00aa } });
+        this.lineGraphics = this.add.graphics({ lineStyle: { width: 4, color: 0x000000 } });
         this.line = new Phaser.Geom.Line(100, 300, 400, 300);
     }
 
@@ -124,7 +106,6 @@ class GameScene extends Scene {
             let p = this.platforms.children.entries[i];
             if (!p.body) continue;
             if (p.body?.position.x < this.player.body.x - 1600) {
-                console.log("deleting platform " + i);
                 this.platforms.children.delete(p);
                 p.destroy();
             }
@@ -149,17 +130,27 @@ class GameScene extends Scene {
         }
 
         let yExtra = 0;
+        let hasExtraPlatform = false, hasAnotherExtraPlatform = false;
         if (this.platformXOffset > 2000) {
-            // Make harder.
             yExtra = 10;
         }
         if (this.platformXOffset > 4000) {
-            // Make harder.
             yExtra = 20;
         }
         if (this.platformXOffset > 6000) {
-            // Make harder.
             yExtra = 30;
+        }
+        if (this.platformXOffset > 10000) {
+            hasExtraPlatform = true;
+        }
+        if (this.platformXOffset > 14000) {
+            yExtra = 40;
+        }
+        if (this.platformXOffset > 20000) {
+            yExtra = 50;
+        }
+        if (this.platformXOffset > 24000) {
+            hasAnotherExtraPlatform = true;
         }
 
         let xOff = this.platformXOffset;
@@ -178,8 +169,7 @@ class GameScene extends Scene {
                 this.platformYIncrement = yInc;
             }
 
-            if (i == 20 || i == 39) {
-                console.log("creating at xOff", xOff);
+            if (i == 20 || i == 39 || (i == 29 && hasExtraPlatform) || (i == 9 && hasAnotherExtraPlatform)) {
                 // Create a platform in the middle.
                 let yMin = yOff + 50 + yExtra + 200;
                 let yMax = yOff + 550 - yExtra;
@@ -215,12 +205,12 @@ class GameScene extends Scene {
     }
 
     update(_time: number, _delta: number) {
-        this.scoreText.setText("Score: " + this.score);
+        this.scoreText.setText("SCORE: " + this.score);
         this.score = Math.max(0, Math.floor(this.player.body.x / 300));
         this.maybeGeneratePlatforms();
 
         if (startState == "unstarted") {
-            this.centerText.setText("Press space or click to start");
+            this.centerText.setText("PRESS SPACE OR CLICK TO START");
             if (this.isShootDown()) {
                 startState = "unstarted_need_release";
             }
@@ -235,7 +225,7 @@ class GameScene extends Scene {
         }
 
         if (this.gameOver) {
-            this.centerText.setText("Press space or click to restart");
+            this.centerText.setText("PRESS SPACE OR CLICK TO RESTART");
             if (this.isShootDown()) {
                 if (this.gameOverState == "need_press") {
                     this.scene.restart();
@@ -255,8 +245,6 @@ class GameScene extends Scene {
 
         this.player.body.setFrictionX(.01);
 
-
-        this.player.anims.play('right', true);
         if (this.player.body.velocity.x > 200) {
 
             this.player.body.setVelocityX(this.player.body.velocity.x * .99);
@@ -270,7 +258,6 @@ class GameScene extends Scene {
             // Detach if shot or reeling.
             if (this.shootState == "reeling" || this.shootState == "shot") {
                 // Detach.
-                console.log("detaching");
                 this.spike.destroy();
                 this.shootState = "unshot";
             }
@@ -279,12 +266,13 @@ class GameScene extends Scene {
             }
         }
 
+
         if (this.shootState == "reeling") {
             this.line.x1 = this.player.body.x + this.player.body.width / 2;
             this.line.y1 = this.player.body.y + this.player.body.height / 2;
             this.line.x2 = this.spike.body.x + this.spike.body.width / 2;
             this.line.y2 = this.spike.body.y + this.spike.body.height / 2;
-
+            this.lineGraphics.lineStyle(4, 0x000000, 1);
             this.lineGraphics.strokeLineShape(this.line);
             // Move player towards spike.
             var xdiff = this.spike.body.position.x - this.player.body.x;
@@ -320,7 +308,6 @@ class GameScene extends Scene {
 
         if (this.shootState == "shot") {
             // Check for collision.
-            console.assert(this.spike);
             if (this.physics.collide(this.spike, this.platforms)) {
                 this.spike.setVelocity(0, 0);
                 this.spike.body.allowGravity = false;
@@ -337,7 +324,8 @@ class GameScene extends Scene {
         if (this.isShootDown()) {
             if (this.shootState == "unshot") {
                 this.shootState = "shot";
-                this.spike = this.physics.add.sprite(this.player.body.center.x, this.player.body.center.y, 'spike')
+                this.spike = this.physics.add.sprite(this.player.body.center.x, this.player.body.center.y, 'circle')
+                this.spike.body.setCircle(2);
                 this.spike.setVelocityX(1000);
                 this.spike.setVelocityY(-1000);
             }
@@ -350,7 +338,7 @@ const config: Types.Core.GameConfig = {
     width: 904,
     height: 675,
     parent: 'game-container',
-    backgroundColor: '#EEEEEE',
+    backgroundColor: '#CCCCCC',
     scale: {
         mode: Phaser.Scale.ScaleModes.NONE,
         autoCenter: Phaser.Scale.CENTER_BOTH
@@ -359,7 +347,7 @@ const config: Types.Core.GameConfig = {
         default: 'arcade',
         arcade: {
             gravity: { x: 0, y: 400 },
-            debug: true
+            // debug: true
         }
     },
     scene: [GameScene]
