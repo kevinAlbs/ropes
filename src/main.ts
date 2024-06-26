@@ -265,7 +265,7 @@ class GameScene extends Scene {
         if (this.shootState == "reeling") {
             this.line.x1 = this.player.body.center.x;
             this.line.y1 = this.player.body.center.y;
-            this.line.x2 = this.spike.body.center.x;
+            this.line.x2 = this.spike.body.center.x + this.spike.body.halfWidth;
             this.line.y2 = this.spike.body.center.y - this.spike.body.halfHeight;
             this.lineGraphics.lineStyle(4, 0x000000, 1);
             this.lineGraphics.strokeLineShape(this.line);
@@ -304,7 +304,7 @@ class GameScene extends Scene {
         if (this.shootState == "shot") {
             this.line.x1 = this.player.body.center.x;
             this.line.y1 = this.player.body.center.y;
-            this.line.x2 = this.spike.body.center.x;
+            this.line.x2 = this.spike.body.center.x + this.spike.body.halfWidth;
             this.line.y2 = this.spike.body.center.y - this.spike.body.halfHeight;
             this.lineGraphics.lineStyle(4, 0x000000, 1);
             this.lineGraphics.strokeLineShape(this.line);
