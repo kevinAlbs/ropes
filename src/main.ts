@@ -35,8 +35,8 @@ class GameScene extends Scene {
         {
             var graphics = this.add.graphics();
             graphics.fillStyle(0);
-            graphics.fillCircle(2, 2, 2);
-            graphics.generateTexture('circle', 4, 4);
+            graphics.fillCircle(4, 4, 4);
+            graphics.generateTexture('circle', 8, 8);
             graphics.destroy();
         }
 
@@ -57,15 +57,15 @@ class GameScene extends Scene {
         this.player.setBounce(.1);
         this.player.setCollideWorldBounds(false);
         this.player.body.setGravityY(300); // Q: why does this appear to be more than the gravity applied in the config? A:
-        let that = this;
+        // let that = this;
         this.physics.add.collider(this.player, this.platforms, (_o1: Phaser.Tilemaps.Tile | Types.Physics.Arcade.GameObjectWithBody, _o2: Phaser.Tilemaps.Tile | Types.Physics.Arcade.GameObjectWithBody) => {
-            if (that.isShootDown()) {
-                this.gameOverState = "need_release";
-            } else {
-                this.gameOverState = "need_press";
-            }
+            // if (that.isShootDown()) {
+            //     this.gameOverState = "need_release";
+            // } else {
+            //     this.gameOverState = "need_press";
+            // }
 
-            that.gameOver = true;
+            // that.gameOver = true;
         });
 
         if (this.input.keyboard) {
@@ -268,10 +268,10 @@ class GameScene extends Scene {
 
 
         if (this.shootState == "reeling") {
-            this.line.x1 = this.player.body.x + this.player.body.width / 2;
-            this.line.y1 = this.player.body.y + this.player.body.height / 2;
-            this.line.x2 = this.spike.body.x + this.spike.body.width / 2;
-            this.line.y2 = this.spike.body.y + this.spike.body.height / 2;
+            this.line.x1 = this.player.body.center.x;
+            this.line.y1 = this.player.body.center.y;
+            this.line.x2 = this.spike.body.center.x;
+            this.line.y2 = this.spike.body.center.y - this.spike.body.halfHeight;
             this.lineGraphics.lineStyle(4, 0x000000, 1);
             this.lineGraphics.strokeLineShape(this.line);
             // Move player towards spike.
@@ -307,6 +307,12 @@ class GameScene extends Scene {
         }
 
         if (this.shootState == "shot") {
+            this.line.x1 = this.player.body.center.x;
+            this.line.y1 = this.player.body.center.y;
+            this.line.x2 = this.spike.body.center.x;
+            this.line.y2 = this.spike.body.center.y - this.spike.body.halfHeight;
+            this.lineGraphics.lineStyle(4, 0x000000, 1);
+            this.lineGraphics.strokeLineShape(this.line);
             // Check for collision.
             if (this.physics.collide(this.spike, this.platforms)) {
                 this.spike.setVelocity(0, 0);
@@ -325,7 +331,8 @@ class GameScene extends Scene {
             if (this.shootState == "unshot") {
                 this.shootState = "shot";
                 this.spike = this.physics.add.sprite(this.player.body.center.x, this.player.body.center.y, 'circle')
-                this.spike.body.setCircle(2);
+                this.spike.visible = false;
+                this.spike.body.setCircle(4);
                 this.spike.setVelocityX(1000);
                 this.spike.setVelocityY(-1000);
             }
