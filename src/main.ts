@@ -1,5 +1,6 @@
 import { Game, Types, Scene } from "phaser";
 
+let startState: string = "unstarted";
 
 class GameScene extends Scene {
     score: Number;
@@ -9,7 +10,7 @@ class GameScene extends Scene {
     platforms: Phaser.Physics.Arcade.StaticGroup;
     gameOver: boolean;
     gameOverState: string;
-    gameOverText: Phaser.GameObjects.Text;
+    centerText: Phaser.GameObjects.Text;
     lineGraphics: Phaser.GameObjects.Graphics;
     line: Phaser.Geom.Line;
     player: Types.Physics.Arcade.SpriteWithDynamicBody;
@@ -93,9 +94,13 @@ class GameScene extends Scene {
         }
 
 
-        this.gameOverText = this.add.text(this.cameras.main.width / 2, this.cameras.main.height / 2, "").setOrigin(.5).setColor("#000000");
-        this.gameOverText.setScrollFactor(0);
-        this.gameOverText.depth = 1;
+        this.centerText = this.add.text(this.cameras.main.width / 2, this.cameras.main.height / 2, "").setOrigin(.5).setColor("#FF0000");
+        this.centerText.setScrollFactor(0);
+        this.centerText.depth = 1;
+
+        if (startState == "unstarted") {
+            this.physics.pause();
+        }
 
         this.scoreText = this.add.text(5, 5, "").setColor("#FF0000");
         this.scoreText.setScrollFactor(0); // Stick to camera view.
@@ -214,8 +219,23 @@ class GameScene extends Scene {
         this.score = Math.max(0, Math.floor(this.player.body.x / 300));
         this.maybeGeneratePlatforms();
 
+        if (startState == "unstarted") {
+            this.centerText.setText("Press space or click to start");
+            if (this.isShootDown()) {
+                startState = "unstarted_need_release";
+            }
+            return;
+        } else if (startState == "unstarted_need_release") {
+            if (!this.isShootDown()) {
+                startState = "started";
+                this.centerText.setText("");
+                this.physics.resume();
+            }
+            return;
+        }
+
         if (this.gameOver) {
-            this.gameOverText.setText("Shoot to restart");
+            this.centerText.setText("Press space or click to restart");
             if (this.isShootDown()) {
                 if (this.gameOverState == "need_press") {
                     this.scene.restart();
