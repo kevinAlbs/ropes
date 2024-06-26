@@ -210,13 +210,8 @@ class GameScene extends Scene {
         this.maybeGeneratePlatforms();
 
         if (startState == "unstarted") {
-            this.centerText.setText("PRESS SPACE OR CLICK TO START");
+            this.centerText.setText("CLICK TO START");
             if (this.isShootDown()) {
-                startState = "unstarted_need_release";
-            }
-            return;
-        } else if (startState == "unstarted_need_release") {
-            if (!this.isShootDown()) {
                 startState = "started";
                 this.centerText.setText("");
                 this.physics.resume();
@@ -225,7 +220,7 @@ class GameScene extends Scene {
         }
 
         if (this.gameOver) {
-            this.centerText.setText("PRESS SPACE OR CLICK TO RESTART");
+            this.centerText.setText("CLICK TO RESTART");
             if (this.isShootDown()) {
                 if (this.gameOverState == "need_press") {
                     this.scene.restart();
