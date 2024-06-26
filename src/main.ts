@@ -186,7 +186,7 @@ class GameScene extends Scene {
                 let p: Phaser.Types.Physics.Arcade.SpriteWithStaticBody = this.platforms.create(xOff + (i * 50), yOff + 50 + yExtra, 'square');
                 p.setOrigin(0, 1);
                 p.scaleX *= 5;
-                p.scaleY *= 20;
+                p.scaleY *= 40;
                 p.setDebugBodyColor(0xFF0000)
                 p.refreshBody();
             }
@@ -196,7 +196,7 @@ class GameScene extends Scene {
                 let p: Phaser.Types.Physics.Arcade.SpriteWithStaticBody = this.platforms.create(xOff + (i * 50), yOff + 550 - yExtra, 'square');
                 p.setOrigin(0, 0);
                 p.scaleX *= 5;
-                p.scaleY *= 20;
+                p.scaleY *= 40;
                 p.setDebugBodyColor(0xFF0000)
                 p.refreshBody();
             }
