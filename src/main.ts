@@ -54,7 +54,6 @@ class GameScene extends Scene {
         this.player.setOrigin(.5, .5);
         this.player.setCircle(20);
         this.player.refreshBody();
-        this.player.setBounce(.1);
         this.player.setCollideWorldBounds(false);
         this.player.body.setGravityY(300); // Q: why does this appear to be more than the gravity applied in the config? A:
         let that = this;
