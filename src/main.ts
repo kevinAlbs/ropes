@@ -35,8 +35,8 @@ class GameScene extends Scene {
         {
             var graphics = this.add.graphics();
             graphics.fillStyle(0);
-            graphics.fillCircle(4, 4, 4);
-            graphics.generateTexture('circle', 8, 8);
+            graphics.fillCircle(2, 2, 2);
+            graphics.generateTexture('circle', 4, 4);
             graphics.destroy();
         }
 
@@ -75,15 +75,16 @@ class GameScene extends Scene {
         // this.cameras.main.setBounds(0, 0, 1600, 600);
         this.cameras.main.startFollow(this.player, false, 1 /* follow X */, 0 /* do not follow Y */, 0 /* offset X */, -100 /* offset Y */);
 
-        this.centerText = this.add.text(this.cameras.main.width / 2, this.cameras.main.height / 2, "").setOrigin(.5).setColor("#FF0000").setFont("Monospace").setFontSize("20px");
+        this.centerText = this.add.text(this.cameras.main.width / 2, this.cameras.main.height / 2, "").setOrigin(.5).setColor("#FFFFFF").setBackgroundColor("#000000").setFont("Varela, Monospace").setFontSize("20px").setPadding(5);
         this.centerText.setScrollFactor(0);
         this.centerText.depth = 1;
+        this.centerText.setVisible(false);
 
         if (startState == "unstarted") {
             this.physics.pause();
         }
 
-        this.scoreText = this.add.text(5, 5, "").setColor("#FF0000").setFont("Monospace").setFontSize("20px");
+        this.scoreText = this.add.text(5, 5, "").setColor("#FFFFFF").setBackgroundColor("#000000").setFont("Varela, Monospace").setFontSize("20px").setPadding(5);
         this.scoreText.setScrollFactor(0); // Stick to camera view.
         this.scoreText.depth = 1;
 
@@ -209,17 +210,17 @@ class GameScene extends Scene {
         this.maybeGeneratePlatforms();
 
         if (startState == "unstarted") {
-            this.centerText.setText("CLICK TO START");
+            this.centerText.setText("CLICK TO START").setVisible(true);
             if (this.isShootDown()) {
                 startState = "started";
-                this.centerText.setText("");
+                this.centerText.setVisible(false);
                 this.physics.resume();
             }
             return;
         }
 
         if (this.gameOver) {
-            this.centerText.setText("CLICK TO RESTART");
+            this.centerText.setText("CLICK TO RESTART").setVisible(true);
             if (this.isShootDown()) {
                 if (this.gameOverState == "need_press") {
                     this.scene.restart();
@@ -230,7 +231,6 @@ class GameScene extends Scene {
                 }
             }
             this.physics.pause();
-            return;
         }
 
         if (this.player.body.y > 1600) {
@@ -248,7 +248,7 @@ class GameScene extends Scene {
 
         this.lineGraphics.clear();
 
-        if (!this.isShootDown()) {
+        if (!this.gameOver && !this.isShootDown()) {
             // Detach if shot or reeling.
             if (this.shootState == "reeling" || this.shootState == "shot") {
                 // Detach.
@@ -264,8 +264,8 @@ class GameScene extends Scene {
         if (this.shootState == "reeling") {
             this.line.x1 = this.player.body.center.x;
             this.line.y1 = this.player.body.center.y;
-            this.line.x2 = this.spike.body.center.x + this.spike.body.halfWidth;
-            this.line.y2 = this.spike.body.center.y - this.spike.body.halfHeight;
+            this.line.x2 = this.spike.body.center.x;
+            this.line.y2 = this.spike.body.center.y;
             this.lineGraphics.lineStyle(4, 0x000000, 1);
             this.lineGraphics.strokeLineShape(this.line);
             // Move player towards spike.
@@ -303,8 +303,8 @@ class GameScene extends Scene {
         if (this.shootState == "shot") {
             this.line.x1 = this.player.body.center.x;
             this.line.y1 = this.player.body.center.y;
-            this.line.x2 = this.spike.body.center.x + this.spike.body.halfWidth;
-            this.line.y2 = this.spike.body.center.y - this.spike.body.halfHeight;
+            this.line.x2 = this.spike.body.center.x;
+            this.line.y2 = this.spike.body.center.y;
             this.lineGraphics.lineStyle(4, 0x000000, 1);
             this.lineGraphics.strokeLineShape(this.line);
             // Check for collision.
@@ -325,7 +325,6 @@ class GameScene extends Scene {
             if (this.shootState == "unshot") {
                 this.shootState = "shot";
                 this.spike = this.physics.add.sprite(this.player.body.center.x, this.player.body.center.y, 'circle')
-                this.spike.visible = false;
                 this.spike.body.setCircle(4);
                 this.spike.setVelocityX(1000);
                 this.spike.setVelocityY(-1000);
