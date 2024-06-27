@@ -1,9 +1,144 @@
 import { Game, Types, Scene } from "phaser";
 
+declare var grecaptcha: any;
+
 let startState: string = "unstarted";
 
+// For recaptcha.
+const site_key = "6LfmEAMqAAAAACawJpentJZMJQdat7JUVTm1VegP";
+
+let lastScore = {
+    set: false,
+    score: 0,
+    scoreid: "",
+    date: 0,
+    submitted: false
+};
+
+let highScore = {
+    set: false,
+    score: 0,
+    scoreid: "",
+    date: 0,
+    submitted: false
+};
+
+const submit_last_score_el = document.querySelector("#submit_last_score")!;
+submit_last_score_el.addEventListener("click", function (e: any) {
+    submitScore("last", function () {
+        submit_last_score_el.classList.add("hidden");
+    });
+    e.preventDefault();
+});
+
+const submit_high_score_el = document.querySelector("#submit_high_score")!;
+submit_high_score_el.addEventListener("click", function (e: any) {
+    submitScore("high", function () {
+        submit_high_score_el.classList.add("hidden");
+    });
+    e.preventDefault();
+});
+
+function loadScore() {
+    const highScore_json = localStorage.getItem("highScore");
+    if (highScore_json) {
+        highScore = JSON.parse(highScore_json);
+    }
+
+    document.querySelector("#high_score")!.innerHTML = "Local best: " + highScore.score;
+
+    if (highScore.submitted) {
+        submit_high_score_el.classList.add("hidden");
+    } else {
+        submit_high_score_el.classList.remove("hidden");
+    }
+}
+loadScore();
+
+function getUUID() {
+    if (window.isSecureContext) {
+        return crypto.randomUUID();
+    } else {
+        return "" + Math.floor(Math.random() * 10000000);
+    }
+}
+
+
+function setScore(score: number) {
+    if (score == 0) {
+        return;
+    }
+
+    lastScore.set = true;
+    lastScore.score = score;
+    lastScore.scoreid = getUUID();
+    lastScore.date = Date.now();
+    lastScore.submitted = false;
+
+    submit_last_score_el.classList.remove("hidden");
+    submit_last_score_el.innerHTML = "Submit Score (" + score + ") to Leaderboard";
+
+    if (!highScore.set || score > highScore.score) {
+        highScore.set = lastScore.set;
+        highScore.score = lastScore.score;
+        highScore.scoreid = lastScore.scoreid;
+        highScore.date = lastScore.date;
+        highScore.submitted = lastScore.submitted;
+        localStorage.setItem("highScore", JSON.stringify(highScore));
+        loadScore(); // Update UI.
+    }
+}
+
+function submitScore(score_type: string /* 'high' or 'last' */, on_success: CallableFunction) {
+    let to_submit = highScore;
+    if (score_type == 'last') {
+        to_submit = lastScore;
+    }
+
+    const name = prompt("Enter name");
+    if (name == null) {
+        return;
+    }
+    if (name.trim() == "") {
+        return;
+    }
+    // Get reCaptcha token.
+    grecaptcha.ready(function () {
+        grecaptcha.execute(site_key, { action: 'submit' }).then(function (token: string) {
+            const fd = new FormData();
+            fd.append("token", token);
+            fd.append("name", name);
+            fd.append("score", "" + to_submit.score);
+            fd.append("scoreid", to_submit.scoreid);
+            fd.append("date", "" + to_submit.date);
+            return fetch("leaderboard/submit.php", {
+                method: "POST",
+                body: fd
+            });
+        }).then(function (res: any) {
+            return res.json()
+        }).then(function (res: any) {
+            if (!res["ok"]) {
+                alert("Error submitting Score: " + res["msg"]);
+            } else {
+                alert("Score saved");
+                to_submit.submitted = true;
+                if (score_type == 'high') {
+                    localStorage.setItem("highScore", JSON.stringify(to_submit));
+                }
+                if (on_success) {
+                    on_success();
+                }
+            }
+        }).catch(function (res: any) {
+            console.log("Unexpected error submitting Score", res);
+            alert("Unexpected error submitting Score. See Developer Tools for more information.");
+        });
+    });
+}
+
 class GameScene extends Scene {
-    score: Number;
+    score: number;
     scoreText: Phaser.GameObjects.Text;
     platformXOffset: number;
     platformYIncrement: number;
@@ -17,8 +152,12 @@ class GameScene extends Scene {
     space: Phaser.Input.Keyboard.Key;
     shootState = "unshot";
     spike: Phaser.Types.Physics.Arcade.SpriteWithDynamicBody;
+    canvas = document.querySelector("#game-container canvas");
     isShootDown() {
-        return this.input.activePointer.isDown /* click or tap */ || this.space.isDown /* spacebar */;
+        if (this.input.activePointer.downElement == this.canvas && this.input.activePointer.isDown) {
+            return true;
+        }
+        return this.space.isDown;
     }
 
     create() {
@@ -65,6 +204,7 @@ class GameScene extends Scene {
             }
 
             that.gameOver = true;
+            setScore(this.score);
         });
 
         if (this.input.keyboard) {
@@ -84,12 +224,13 @@ class GameScene extends Scene {
             this.physics.pause();
         }
 
-        this.scoreText = this.add.text(5, 5, "").setColor("#FFFFFF").setBackgroundColor("#000000").setFont("Varela, Monospace").setFontSize("20px").setPadding(5);
+        this.scoreText = this.add.text(this.cameras.main.width / 2, 5, "").setOrigin(.5, 0).setColor("#FFFFFF").setBackgroundColor("#000000").setFont("Varela, Monospace").setFontSize("20px").setPadding(5);
         this.scoreText.setScrollFactor(0); // Stick to camera view.
         this.scoreText.depth = 1;
 
         this.shootState = "unshot";
         this.gameOver = false;
+        submit_last_score_el.classList.add("hidden");
 
         // Platforms are every 100 pixels.
         this.platformXOffset = -500;
@@ -237,8 +378,6 @@ class GameScene extends Scene {
             this.cameras.main.stopFollow();
         }
 
-        this.player.body.setFrictionX(.01);
-
         if (this.player.body.velocity.x > 200) {
 
             this.player.body.setVelocityX(this.player.body.velocity.x * .99);
@@ -264,8 +403,8 @@ class GameScene extends Scene {
         if (this.shootState == "reeling") {
             this.line.x1 = this.player.body.center.x;
             this.line.y1 = this.player.body.center.y;
-            this.line.x2 = this.spike.body.center.x;
-            this.line.y2 = this.spike.body.center.y;
+            this.line.x2 = this.spike.body.x + 2;
+            this.line.y2 = this.spike.body.y + 2;
             this.lineGraphics.lineStyle(4, 0x000000, 1);
             this.lineGraphics.strokeLineShape(this.line);
             // Move player towards spike.
@@ -303,8 +442,8 @@ class GameScene extends Scene {
         if (this.shootState == "shot") {
             this.line.x1 = this.player.body.center.x;
             this.line.y1 = this.player.body.center.y;
-            this.line.x2 = this.spike.body.center.x;
-            this.line.y2 = this.spike.body.center.y;
+            this.line.x2 = this.spike.body.x + 2;
+            this.line.y2 = this.spike.body.y + 2;
             this.lineGraphics.lineStyle(4, 0x000000, 1);
             this.lineGraphics.strokeLineShape(this.line);
             // Check for collision.
