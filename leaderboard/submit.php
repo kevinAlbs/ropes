@@ -95,7 +95,7 @@ $db->exec($query);
 
 // Check if database already has entry. 
 $stmt = $db->prepare("SELECT * FROM scores WHERE scoreid=:scoreid");
-$stmt->bindValue(":scoreid", $score, SQLITE3_TEXT);
+$stmt->bindValue(":scoreid", $scoreid, SQLITE3_TEXT);
 $res = $stmt->execute();
 if ($row = $res->fetchArray()) {
     errexit("Score already saved");

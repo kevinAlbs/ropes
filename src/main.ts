@@ -12,7 +12,8 @@ let lastScore = {
     score: 0,
     scoreid: "",
     date: 0,
-    submitted: false
+    submitted: false,
+    hidden: false // Only not hidden between restarts.
 };
 
 let highScore = {
@@ -23,35 +24,57 @@ let highScore = {
     submitted: false
 };
 
+function applyScores() {
+    // Update UI.
+    if (lastScore.submitted || lastScore.score == 0) {
+        submit_last_score_el.classList.add("hidden");
+    } else if (!lastScore.hidden) {
+        submit_last_score_el.classList.remove("hidden");
+    }
+
+    if (highScore.submitted || highScore.score == 0) {
+        submit_high_score_el.classList.add("hidden");
+    } else {
+        submit_high_score_el.classList.remove("hidden");
+    }
+
+    submit_last_score_el.innerHTML = "Submit score (" + lastScore.score + ") to leaderboard";
+    document.querySelector("#high_score")!.innerHTML = "Local best: " + highScore.score;
+
+    // Update local storage.
+    if (highScore.set && highScore.score != 0) {
+        localStorage.setItem("highScore", JSON.stringify(highScore));
+    }
+}
+
 const submit_last_score_el = document.querySelector("#submit_last_score")!;
 submit_last_score_el.addEventListener("click", function (e: any) {
-    submitScore("last", function () {
-        submit_last_score_el.classList.add("hidden");
+    submitScore(lastScore, function () {
+        lastScore.submitted = true;
+        if (lastScore.scoreid == highScore.scoreid) {
+            highScore.submitted = true;
+        }
+        applyScores();
     });
     e.preventDefault();
 });
 
 const submit_high_score_el = document.querySelector("#submit_high_score")!;
 submit_high_score_el.addEventListener("click", function (e: any) {
-    submitScore("high", function () {
-        submit_high_score_el.classList.add("hidden");
+    submitScore(highScore, function () {
+        highScore.submitted = true;
+        applyScores();
     });
     e.preventDefault();
 });
 
 function loadScore() {
     const highScore_json = localStorage.getItem("highScore");
-    if (highScore_json) {
-        highScore = JSON.parse(highScore_json);
+    if (!highScore_json) {
+        return;
     }
-
-    document.querySelector("#high_score")!.innerHTML = "Local best: " + highScore.score;
-
-    if (highScore.submitted) {
-        submit_high_score_el.classList.add("hidden");
-    } else {
-        submit_high_score_el.classList.remove("hidden");
-    }
+    highScore = JSON.parse(highScore_json);
+    applyScores();
 }
 loadScore();
 
@@ -75,26 +98,18 @@ function setScore(score: number) {
     lastScore.date = Date.now();
     lastScore.submitted = false;
 
-    submit_last_score_el.classList.remove("hidden");
-    submit_last_score_el.innerHTML = "Submit Score (" + score + ") to Leaderboard";
-
     if (!highScore.set || score > highScore.score) {
         highScore.set = lastScore.set;
         highScore.score = lastScore.score;
         highScore.scoreid = lastScore.scoreid;
         highScore.date = lastScore.date;
         highScore.submitted = lastScore.submitted;
-        localStorage.setItem("highScore", JSON.stringify(highScore));
-        loadScore(); // Update UI.
     }
+
+    applyScores();
 }
 
-function submitScore(score_type: string /* 'high' or 'last' */, on_success: CallableFunction) {
-    let to_submit = highScore;
-    if (score_type == 'last') {
-        to_submit = lastScore;
-    }
-
+function submitScore(scoreObj: any, on_success: CallableFunction) {
     const name = prompt("Enter name");
     if (name == null) {
         return;
@@ -108,9 +123,9 @@ function submitScore(score_type: string /* 'high' or 'last' */, on_success: Call
             const fd = new FormData();
             fd.append("token", token);
             fd.append("name", name);
-            fd.append("score", "" + to_submit.score);
-            fd.append("scoreid", to_submit.scoreid);
-            fd.append("date", "" + to_submit.date);
+            fd.append("score", "" + scoreObj.score);
+            fd.append("scoreid", scoreObj.scoreid);
+            fd.append("date", "" + scoreObj.date);
             return fetch("leaderboard/submit.php", {
                 method: "POST",
                 body: fd
@@ -119,20 +134,16 @@ function submitScore(score_type: string /* 'high' or 'last' */, on_success: Call
             return res.json()
         }).then(function (res: any) {
             if (!res["ok"]) {
-                alert("Error submitting Score: " + res["msg"]);
+                alert("Error submitting score: " + res["msg"]);
             } else {
                 alert("Score saved");
-                to_submit.submitted = true;
-                if (score_type == 'high') {
-                    localStorage.setItem("highScore", JSON.stringify(to_submit));
-                }
                 if (on_success) {
                     on_success();
                 }
             }
         }).catch(function (res: any) {
-            console.log("Unexpected error submitting Score", res);
-            alert("Unexpected error submitting Score. See Developer Tools for more information.");
+            console.log("Unexpected error submitting score", res);
+            alert("Unexpected error submitting score. See Developer Tools for more information.");
         });
     });
 }
