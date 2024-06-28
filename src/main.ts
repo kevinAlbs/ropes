@@ -490,8 +490,9 @@ const config: Types.Core.GameConfig = {
     parent: 'game-container',
     backgroundColor: '#CCCCCC',
     scale: {
-        mode: Phaser.Scale.ScaleModes.NONE,
-        autoCenter: Phaser.Scale.CENTER_BOTH
+        mode: Phaser.Scale.ScaleModes.FIT,
+        max: { width: 904, height: 675 },
+        autoCenter: Phaser.Scale.CENTER_HORIZONTALLY
     },
     physics: {
         default: 'arcade',
