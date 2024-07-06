@@ -3,7 +3,7 @@
 <head>
     <title>Ropes</title>
     <meta name="viewport" content="width=462, maximum-scale=1, user-scalable=no">
-    <link rel="icon" type="image/png" href="../img/favicon.png">
+    <link rel="icon" type="image/png" href="../favicon.png">
     <style type="text/css">
         body.dark {
             background: #333;
